@@ -10,6 +10,7 @@ namespace ThinBing
     {
         static void Main(string[] args)
         {
+            Console.WriteLine("Change!");
         }
     }
 }
