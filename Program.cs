@@ -91,7 +91,8 @@ namespace ThinBing
 
 					// Grab that tasty image
 					string fileName = Path.Combine(Path.GetTempPath(), "ThinBing" + Path.GetExtension(data.images[0].url));
-					DownloadFile(BaseUrl + data.images[0].url, fileName);
+					if (!DownloadFile(BaseUrl + data.images[0].url, fileName))
+						continue;
 
 					// Now set that bad boy
 					SetWallpaper(fileName);
