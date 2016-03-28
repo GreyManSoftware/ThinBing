@@ -80,6 +80,12 @@ namespace ThinBing
 					// Grab Bing JSON
 					string input = GrabData("https://www.bing.com/HPImageArchive.aspx?format=js&idx=0&n=1&mkt=en-US");
 
+					if (String.IsNullOrEmpty(input))
+					{
+						System.Threading.Thread.Sleep(1800 * 1000);
+						continue;
+					}
+
 					// Parse that magical wallpaper JSON
 					Bing data = ParseJson(input);
 
@@ -123,6 +129,9 @@ namespace ThinBing
 			
 			// Grab GitHub Releases
 			string json = GrabData("https://api.github.com/repos/CyberChr1s/ThinBing/releases");
+
+			if (String.IsNullOrEmpty(json))
+				return false;
 
 			JavaScriptSerializer js = new JavaScriptSerializer();
 			
@@ -198,9 +207,20 @@ namespace ThinBing
 
 		static string GrabData(string path)
 		{
-			WebClient web = new WebClient();
-			web.Headers["User-Agent"] = @"Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/49.0.2623.87 Safari/537.36";
-			return web.DownloadString(path);
+			string response;
+
+			try
+			{
+				WebClient web = new WebClient();
+				web.Headers["User-Agent"] = @"Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/49.0.2623.87 Safari/537.36";
+				response = web.DownloadString(path);
+			}
+			catch
+			{
+				return null;
+			}
+
+			return response;
 		}
 
 		static Bing ParseJson(string json)
