@@ -32,7 +32,7 @@ namespace ThinBing
 		}
 
 		static string BaseUrl = "http://www.bing.com/";
-		static string path = '"' + Path.GetFullPath(Assembly.GetExecutingAssembly().Location) + '"';
+		static string exePath = '"' + Path.GetFullPath(Assembly.GetExecutingAssembly().Location) + '"';
 
 		static void Main(string[] args)
 		{
@@ -46,15 +46,7 @@ namespace ThinBing
 			if (args.Contains("-h") || args.Contains("-help"))
 				PrintHelp();
 
-			if (CheckForUpdates())
-			{
-				DelRegKey(rk);
-				// Wait to be killed - hopefully this will work
-				System.Threading.Thread.Sleep(3600000);
-				Environment.Exit(0);
-			}
-			else
-				CheckForOtherProcess();
+			CheckForUpdates(rk);
 
 			if (args.Contains("-d"))
 			{
@@ -71,8 +63,9 @@ namespace ThinBing
 			{
 				try
 				{
-					if (fail > 2)
+					if (fail > 4)
 					{
+						// This could just be an even longer sleep
 						Console.WriteLine("Failed too many times. Exiting...");
 						Environment.Exit(-1);
 					}
@@ -87,7 +80,7 @@ namespace ThinBing
 					}
 
 					// Parse that magical wallpaper JSON
-					Bing data = ParseJson(input);
+					Bing data = ParseJson<Bing>(input);
 
 					// Grab that tasty image
 					string fileName = Path.Combine(Path.GetTempPath(), "ThinBing" + Path.GetExtension(data.images[0].url));
@@ -99,7 +92,7 @@ namespace ThinBing
 					fail = 0;
 				}
 
-				// If it fails, we will just wait a min until we try again
+				// If it fails, wait a min
 				catch
 				{
 					System.Threading.Thread.Sleep(60 * 1000);
@@ -109,20 +102,30 @@ namespace ThinBing
 				// Checks every 4hrs
 				System.Threading.Thread.Sleep(14400 * 1000);
 
-				// Horrible code reuse
-				if (CheckForUpdates())
-				{
-					DelRegKey(rk);
-					// Wait to be killed - hopefully this will work
-					System.Threading.Thread.Sleep(3600 * 1000);
-					Environment.Exit(0);
-				}
-				else
-					CheckForOtherProcess();
+				CheckForUpdates(rk);
 			}
 		}
 
-		static bool CheckForUpdates()
+		static void CheckForUpdates(RegistryKey rk)
+		{
+			if (CheckForLatestVersion())
+			{
+				DelRegKey(rk);
+
+				// This sleep allows for the newly download file to end this processes life
+				// We don't simply just exit, because the other process gets the file pa
+				// from the running process. Tacky, I know :)
+				System.Threading.Thread.Sleep(3600 * 1000);
+
+				// We shouldn't ever get here
+				Environment.Exit(0);
+			}
+			else
+				CheckForOtherProcess();
+
+		}
+
+		static bool CheckForLatestVersion()
 		{
 			// Grab this bad boys version
 			Version version = Assembly.GetExecutingAssembly().GetName().Version;
@@ -134,13 +137,11 @@ namespace ThinBing
 			if (String.IsNullOrEmpty(json))
 				return false;
 
-			JavaScriptSerializer js = new JavaScriptSerializer();
-			
-			foreach (var result in js.Deserialize<List<GitHubReleases>>(json))
+			foreach (var result in ParseJson<List<GitHubReleases>>(json))
 			{
 				if (version.CompareTo(new Version(result.tag_name)) < 0)
 				{
-					Console.WriteLine("Downloading update");
+					Console.WriteLine("Downloading update: {0}", result.tag_name);
 					if (DownloadFile(result.assets[0].browser_download_url, output + "_" + result.tag_name + ".exe"))
 					{
 						Process.Start(output + "_" + result.tag_name + ".exe");
@@ -151,6 +152,7 @@ namespace ThinBing
 			return false;
 		}
 
+		// This entire function makes me sick
 		static void CheckForOtherProcess()
 		{
 			foreach (Process proc in Process.GetProcesses().Where(p => p.ProcessName.StartsWith("ThinBing") && !p.ProcessName.Contains("vshost")))
@@ -224,16 +226,16 @@ namespace ThinBing
 			return response;
 		}
 
-		static Bing ParseJson(string json)
+		static T ParseJson<T>(string json)
 		{
 			JavaScriptSerializer js = new JavaScriptSerializer();
-			return js.Deserialize<Bing>(json);
+			return js.Deserialize<T>(json);
 		}
 
 		static bool DownloadFile(string url, string fileName)
 		{
 			WebClient web = new WebClient();
-			Console.WriteLine("Saving image to: {0}", fileName);
+			Console.WriteLine("Saving file to: {0}", fileName);
 
 			try
 			{
@@ -258,7 +260,7 @@ namespace ThinBing
 
 			if (thinBing == null)
 				return false;
-			else if (thinBing.ToString() != path)
+			else if (thinBing.ToString() != exePath)
 				return false;
 			else
 				return true;
@@ -271,13 +273,13 @@ namespace ThinBing
 			if (thinBing == null)
 			{
 				Console.WriteLine("Adding start up registry key");
-				reg.SetValue("ThinBing", path);
+				reg.SetValue("ThinBing", exePath);
 			}
-			else if (thinBing != null && thinBing.ToString() != path)
+			else if (thinBing != null && thinBing.ToString() != exePath)
 			{
 				DelRegKey(reg);
-				Console.WriteLine("Chaing start up registry key");
-				reg.SetValue("ThinBing", path);
+				Console.WriteLine("Changing start up registry key");
+				reg.SetValue("ThinBing", exePath);
 			}
 		}
 
