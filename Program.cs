@@ -16,6 +16,7 @@ namespace ThinBing
         static void Main(string[] args)
         {
             RegistryKey rk = Registry.CurrentUser.OpenSubKey("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", true);
+            int fail = 0;
 
             if (args.Contains("-h") || args.Contains("-help"))
                 PrintHelp();
@@ -35,6 +36,12 @@ namespace ThinBing
             {
                 try
                 {
+                    if (fail > 2)
+                    {
+                        Console.WriteLine("Failed too many times. Exiting...");
+                        Environment.Exit(-1);
+                    }
+
                     // Grab Bing JSON
                     string input = GrabData();
 
@@ -47,12 +54,14 @@ namespace ThinBing
 
                     // Now set that bad boy
                     SetWallpaper(fileName);
+                    fail = 0;
                 }
 
                 // If it fails, we will just wait a min until we try again
                 catch
                 {
                     System.Threading.Thread.Sleep(60000);
+                    fail++;
                 }
 
                 // Checks every 4hrs
