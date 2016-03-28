@@ -1,5 +1,6 @@
 ﻿using Microsoft.Win32;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -45,7 +46,15 @@ namespace ThinBing
 			if (args.Contains("-h") || args.Contains("-help"))
 				PrintHelp();
 
-			CheckForOtherProcess();
+			if (CheckForUpdates())
+			{
+				DelRegKey(rk);
+				// Wait to be killed - hopefully this will work
+				System.Threading.Thread.Sleep(3600000);
+				Environment.Exit(0);
+			}
+			else
+				CheckForOtherProcess();
 
 			if (args.Contains("-d"))
 			{
@@ -69,14 +78,14 @@ namespace ThinBing
 					}
 
 					// Grab Bing JSON
-					string input = GrabData();
+					string input = GrabData("https://www.bing.com/HPImageArchive.aspx?format=js&idx=0&n=1&mkt=en-US");
 
 					// Parse that magical wallpaper JSON
 					Bing data = ParseJson(input);
 
 					// Grab that tasty image
 					string fileName = Path.Combine(Path.GetTempPath(), "ThinBing" + Path.GetExtension(data.images[0].url));
-					GrabWallpaper(BaseUrl + data.images[0].url, fileName);
+					DownloadFile(BaseUrl + data.images[0].url, fileName);
 
 					// Now set that bad boy
 					SetWallpaper(fileName);
@@ -86,23 +95,94 @@ namespace ThinBing
 				// If it fails, we will just wait a min until we try again
 				catch
 				{
-					System.Threading.Thread.Sleep(60000);
+					System.Threading.Thread.Sleep(60 * 1000);
 					fail++;
 				}
 
 				// Checks every 4hrs
 				System.Threading.Thread.Sleep(14400 * 1000);
+
+				// Horrible code reuse
+				if (CheckForUpdates())
+				{
+					DelRegKey(rk);
+					// Wait to be killed - hopefully this will work
+					System.Threading.Thread.Sleep(3600 * 1000);
+					Environment.Exit(0);
+				}
+				else
+					CheckForOtherProcess();
 			}
+		}
+
+		static bool CheckForUpdates()
+		{
+			// Grab this bad boys version
+			Version version = Assembly.GetExecutingAssembly().GetName().Version;
+			string output = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "ThinBing");
+			
+			// Grab GitHub Releases
+			string json = GrabData("https://api.github.com/repos/CyberChr1s/ThinBing/releases");
+
+			JavaScriptSerializer js = new JavaScriptSerializer();
+			
+			foreach (var result in js.Deserialize<List<GitHubReleases>>(json))
+			{
+				if (version.CompareTo(new Version(result.tag_name)) < 0)
+				{
+					Console.WriteLine("Downloading update");
+					if (DownloadFile(result.assets[0].browser_download_url, output + "_" + result.tag_name + ".exe"))
+					{
+						Process.Start(output + "_" + result.tag_name + ".exe");
+						return true;
+					}
+				}
+			}
+			return false;
 		}
 
 		static void CheckForOtherProcess()
 		{
-			foreach (Process proc in Process.GetProcessesByName("ThinBing"))
+			foreach (Process proc in Process.GetProcesses().Where(p => p.ProcessName.StartsWith("ThinBing") && !p.ProcessName.Contains("vshost")))
 			{
 				if (proc.Id != Process.GetCurrentProcess().Id)
 				{
-					Console.WriteLine("Killing old process: {0}", proc.Id);
-					proc.Kill();
+					int fail = 0;
+					string oldBin = null;
+					while (fail < 2)
+					{
+						try
+						{
+							oldBin = proc.MainModule.FileName;
+							Console.WriteLine("Killing old process: {0}", proc.Id);
+							proc.Kill();
+						}
+						catch
+						{
+							fail++;
+							System.Threading.Thread.Sleep(1000);
+						}
+					}
+
+					// Make sure we don't try to delete ourself!
+					if (String.IsNullOrEmpty(oldBin) || oldBin == Path.GetFullPath(Assembly.GetExecutingAssembly().Location))
+						continue;
+
+					fail = 0;
+					while (fail < 2)
+					{
+						try
+						{
+							Console.WriteLine("Cleaning up old bin {0}", oldBin);
+							File.Delete(oldBin);
+							break;
+						}
+						catch
+						{
+							fail++;
+							System.Threading.Thread.Sleep(1000);
+						}
+					}
 				}
 			}
 		}
@@ -116,23 +196,34 @@ namespace ThinBing
 			Environment.Exit(0);
 		}
 
-		static string GrabData()
+		static string GrabData(string path)
 		{
 			WebClient web = new WebClient();
-			return web.DownloadString("https://www.bing.com/HPImageArchive.aspx?format=js&idx=0&n=1&mkt=en-US");
+			web.Headers["User-Agent"] = @"Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/49.0.2623.87 Safari/537.36";
+			return web.DownloadString(path);
 		}
 
-		static Bing ParseJson(string url)
+		static Bing ParseJson(string json)
 		{
 			JavaScriptSerializer js = new JavaScriptSerializer();
-			return js.Deserialize<Bing>(url);
+			return js.Deserialize<Bing>(json);
 		}
 
-		static void GrabWallpaper(string url, string fileName)
+		static bool DownloadFile(string url, string fileName)
 		{
 			WebClient web = new WebClient();
 			Console.WriteLine("Saving image to: {0}", fileName);
-			web.DownloadFile(url, fileName);
+
+			try
+			{
+				web.DownloadFile(url, fileName);
+			}
+			catch
+			{
+				return false;
+			}
+
+			return true;
 		}
 
 		static void SetWallpaper(String path)
