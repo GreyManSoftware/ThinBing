@@ -35,6 +35,7 @@ namespace ThinBing
 
 		static void Main(string[] args)
 		{
+			// This allows users to get output if they run ThinBing from the cmdline
 			NativeMethods.AttachConsole(NativeMethods.ATTACH_PARENT_PROCESS);
 			Console.WriteLine();
 
