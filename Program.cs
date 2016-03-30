@@ -100,7 +100,7 @@ namespace ThinBing
 				}
 
 				// Checks every 4hrs
-				System.Threading.Thread.Sleep(14400 * 1000);
+				System.Threading.Thread.Sleep(3600 * 1000);
 
 				CheckForUpdates(rk);
 			}
