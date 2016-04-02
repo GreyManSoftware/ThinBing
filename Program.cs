@@ -2,11 +2,13 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Runtime.Serialization;
 using System.Web.Script.Serialization;
 
 namespace ThinBing
@@ -84,8 +86,27 @@ namespace ThinBing
 
 					// Grab that tasty image
 					string fileName = Path.Combine(Path.GetTempPath(), "ThinBing" + Path.GetExtension(data.images[0].url));
-					if (!DownloadFile(BaseUrl + data.images[0].url, fileName))
-						continue;
+
+					using (MemoryStream ms = new MemoryStream(DownloadData(BaseUrl + data.images[0].url)))
+					{
+						System.Drawing.Image bingImage = System.Drawing.Image.FromStream(ms);
+
+						// Incredibly awesome hack to get around the lack of a static construtor for PropertyItem
+						PropertyItem bingImageProp = (PropertyItem)FormatterServices.GetUninitializedObject(typeof(PropertyItem));
+
+						try
+						{
+							SetProperty(ref bingImageProp, 33432, data.images[0].copyright);
+							bingImage.SetPropertyItem(bingImageProp);
+							bingImage.Save(fileName);
+						}
+						catch
+						{
+							fail++;
+							System.Threading.Thread.Sleep(60 * 1000);
+							continue;
+						}
+					}
 
 					// Now set that bad boy
 					SetWallpaper(fileName);
@@ -101,9 +122,21 @@ namespace ThinBing
 
 				// Checks every 4hrs
 				System.Threading.Thread.Sleep(3600 * 1000);
-
 				CheckForUpdates(rk);
 			}
+		}
+
+		static void SetProperty(ref System.Drawing.Imaging.PropertyItem prop, int iId, string sTxt)
+		{
+			int iLen = sTxt.Length + 1;
+			byte[] bTxt = new Byte[iLen];
+			for (int i = 0; i < iLen - 1; i++)
+				bTxt[i] = (byte)sTxt[i];
+			bTxt[iLen - 1] = 0x00;
+			prop.Id = iId;
+			prop.Type = 2;
+			prop.Value = bTxt;
+			prop.Len = iLen;
 		}
 
 		static void CheckForUpdates(RegistryKey rk)
@@ -142,7 +175,7 @@ namespace ThinBing
 				if (version.CompareTo(new Version(result.tag_name)) < 0)
 				{
 					Console.WriteLine("Downloading update: {0}", result.tag_name);
-					if (DownloadFile(result.assets[0].browser_download_url, output + "_" + result.tag_name + ".exe"))
+					if (DownloadData(result.assets[0].browser_download_url, output + "_" + result.tag_name + ".exe"))
 					{
 						Process.Start(output + "_" + result.tag_name + ".exe");
 						return true;
@@ -232,7 +265,7 @@ namespace ThinBing
 			return js.Deserialize<T>(json);
 		}
 
-		static bool DownloadFile(string url, string fileName)
+		static bool DownloadData(string url, string fileName)
 		{
 			WebClient web = new WebClient();
 			Console.WriteLine("Saving file to: {0}", fileName);
@@ -247,6 +280,13 @@ namespace ThinBing
 			}
 
 			return true;
+		}
+
+		static byte[] DownloadData(string url)
+		{
+			Console.WriteLine("Downloading data...");
+			WebClient web = new WebClient();
+			return web.DownloadData(url);
 		}
 
 		static void SetWallpaper(String path)
