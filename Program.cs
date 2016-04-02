@@ -35,6 +35,7 @@ namespace ThinBing
 
 		static string BaseUrl = "http://www.bing.com/";
 		static string exePath = '"' + Path.GetFullPath(Assembly.GetExecutingAssembly().Location) + '"';
+		static int PropertyTagImageDescription = 0x010E;
 
 		static void Main(string[] args)
 		{
@@ -96,7 +97,7 @@ namespace ThinBing
 
 						try
 						{
-							SetProperty(ref bingImageProp, 33432, data.images[0].copyright);
+							SetProperty(ref bingImageProp, PropertyTagImageDescription, data.images[0].copyright);
 							bingImage.SetPropertyItem(bingImageProp);
 							bingImage.Save(fileName);
 						}
