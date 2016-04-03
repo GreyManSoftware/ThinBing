@@ -95,11 +95,15 @@ namespace ThinBing
 						// Incredibly awesome hack to get around the lack of a static construtor for PropertyItem
 						PropertyItem bingImageProp = (PropertyItem)FormatterServices.GetUninitializedObject(typeof(PropertyItem));
 
+						// Not sure this try is required anymore, but just in case
 						try
 						{
-							SetProperty(ref bingImageProp, PropertyTagImageDescription, data.images[0].copyright);
-							bingImage.SetPropertyItem(bingImageProp);
-							bingImage.Save(fileName);
+							if (data.images[0].copyright != null)
+							{
+								SetProperty(ref bingImageProp, PropertyTagImageDescription, data.images[0].copyright);
+								bingImage.SetPropertyItem(bingImageProp);
+								bingImage.Save(fileName);
+							}
 						}
 						catch
 						{
