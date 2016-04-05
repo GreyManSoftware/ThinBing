@@ -183,7 +183,7 @@ namespace ThinBing
 			string output = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "ThinBing");
 			
 			// Grab GitHub Releases
-			string json = GrabData("https://api.github.com/repos/CyberChr1s/ThinBing/releases");
+			string json = GrabData("https://api.github.com/repos/GreyManSoftware/ThinBing/releases");
 
 			if (String.IsNullOrEmpty(json))
 				return false;
