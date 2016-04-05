@@ -9,6 +9,7 @@ using System.Net;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Runtime.Serialization;
+using System.Text.RegularExpressions;
 using System.Web.Script.Serialization;
 
 namespace ThinBing
@@ -36,6 +37,8 @@ namespace ThinBing
 		static string BaseUrl = "http://www.bing.com/";
 		static string exePath = '"' + Path.GetFullPath(Assembly.GetExecutingAssembly().Location) + '"';
 		static int PropertyTagImageDescription = 0x010E;
+		static int PropertyTagCopyright = 0x8298;
+		static Regex CopyrightRegex = new Regex(@"([^\(\)]+)", RegexOptions.Compiled);
 
 		static void Main(string[] args)
 		{
@@ -98,12 +101,22 @@ namespace ThinBing
 						// Not sure this try is required anymore, but just in case
 						try
 						{
-							if (data.images[0].copyright != null)
+							if (data.images[0].copyright != null && CopyrightRegex.IsMatch(data.images[0].copyright))
 							{
-								SetProperty(ref bingImageProp, PropertyTagImageDescription, data.images[0].copyright);
+								MatchCollection match = CopyrightRegex.Matches(data.images[0].copyright);
+								string description = match[0].Value;
+								string author = match[1].Value;
+
+								SetProperty(ref bingImageProp, PropertyTagImageDescription, description);
 								bingImage.SetPropertyItem(bingImageProp);
+
+								SetProperty(ref bingImageProp, PropertyTagCopyright, author);
+								bingImage.SetPropertyItem(bingImageProp);
+
 								bingImage.Save(fileName);
 							}
+							else
+								bingImage.Save(fileName);
 						}
 						catch
 						{
