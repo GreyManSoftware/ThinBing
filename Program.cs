@@ -39,6 +39,7 @@ namespace ThinBing
 		static int PropertyTagImageDescription = 0x010E;
 		static int PropertyTagCopyright = 0x8298;
 		static Regex CopyrightRegex = new Regex(@"([^\(\)]+)", RegexOptions.Compiled);
+		static int fail = 0;
 
 		static void Main(string[] args)
 		{
@@ -47,8 +48,7 @@ namespace ThinBing
 			Console.WriteLine();
 
 			RegistryKey rk = Registry.CurrentUser.OpenSubKey("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", true);
-			int fail = 0;
-
+			
 			if (args.Contains("-h") || args.Contains("-help"))
 				PrintHelp();
 
@@ -90,41 +90,11 @@ namespace ThinBing
 
 					// Grab that tasty image
 					string fileName = Path.Combine(Path.GetTempPath(), "ThinBing" + Path.GetExtension(data.images[0].url));
+					byte[] imageData = DownloadData(BaseUrl + data.images[0].url);
 
-					using (MemoryStream ms = new MemoryStream(DownloadData(BaseUrl + data.images[0].url)))
-					{
-						System.Drawing.Image bingImage = System.Drawing.Image.FromStream(ms);
-
-						// Incredibly awesome hack to get around the lack of a static construtor for PropertyItem
-						PropertyItem bingImageProp = (PropertyItem)FormatterServices.GetUninitializedObject(typeof(PropertyItem));
-
-						// Not sure this try is required anymore, but just in case
-						try
-						{
-							if (data.images[0].copyright != null && CopyrightRegex.IsMatch(data.images[0].copyright))
-							{
-								MatchCollection match = CopyrightRegex.Matches(data.images[0].copyright);
-								string description = match[0].Value;
-								string author = match[1].Value;
-
-								SetProperty(ref bingImageProp, PropertyTagImageDescription, description);
-								bingImage.SetPropertyItem(bingImageProp);
-
-								SetProperty(ref bingImageProp, PropertyTagCopyright, author);
-								bingImage.SetPropertyItem(bingImageProp);
-
-								bingImage.Save(fileName);
-							}
-							else
-								bingImage.Save(fileName);
-						}
-						catch
-						{
-							fail++;
-							System.Threading.Thread.Sleep(60 * 1000);
-							continue;
-						}
-					}
+					// Parse that sexy image
+					if (!ParseImage(fileName, imageData, data))
+						continue;
 
 					// Now set that bad boy
 					SetWallpaper(fileName);
@@ -138,7 +108,7 @@ namespace ThinBing
 					fail++;
 				}
 
-				// Checks every 4hrs
+				// Checks every 1hr
 				System.Threading.Thread.Sleep(3600 * 1000);
 				CheckForUpdates(rk);
 			}
@@ -174,6 +144,46 @@ namespace ThinBing
 			else
 				CheckForOtherProcess();
 
+		}
+
+		static bool ParseImage(string fileName, byte[] imageData, Bing data)
+		{
+			using (MemoryStream ms = new MemoryStream(imageData))
+			{
+				System.Drawing.Image bingImage = System.Drawing.Image.FromStream(ms);
+
+				// Incredibly awesome hack to get around the lack of a static construtor for PropertyItem
+				PropertyItem bingImageProp = (PropertyItem)FormatterServices.GetUninitializedObject(typeof(PropertyItem));
+
+				// Not sure this try is required anymore, but just in case
+				try
+				{
+					if (data.images[0].copyright != null && CopyrightRegex.IsMatch(data.images[0].copyright))
+					{
+						MatchCollection match = CopyrightRegex.Matches(data.images[0].copyright);
+						string description = match[0].Value;
+						string author = match[1].Value;
+
+						SetProperty(ref bingImageProp, PropertyTagImageDescription, description);
+						bingImage.SetPropertyItem(bingImageProp);
+
+						SetProperty(ref bingImageProp, PropertyTagCopyright, author);
+						bingImage.SetPropertyItem(bingImageProp);
+
+						bingImage.Save(fileName);
+					}
+					else
+						bingImage.Save(fileName);
+				}
+				catch
+				{
+					fail++;
+					System.Threading.Thread.Sleep(60 * 1000);
+					return false;
+				}
+			}
+
+			return true;
 		}
 
 		static bool CheckForLatestVersion()
