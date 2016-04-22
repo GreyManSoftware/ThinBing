@@ -11,11 +11,14 @@ using System.Runtime.InteropServices;
 using System.Runtime.Serialization;
 using System.Text.RegularExpressions;
 using System.Web.Script.Serialization;
+using ThinBing.Resources;
 
 namespace ThinBing
 {
 	class Program
 	{
+		private static int[] timeSchedule = new int[] { 2, 5, 8, 9, 11 };
+
 		internal static class NativeMethods
 		{
 			// Allows us to print to the console
@@ -62,7 +65,7 @@ namespace ThinBing
 			}
 
 			if (!CheckStartup(rk))
-					AddStartup(rk);
+				AddStartup(rk);
 
 			// Run this magic forever and ever
 			while (true)
@@ -108,8 +111,12 @@ namespace ThinBing
 					fail++;
 				}
 
-				// Checks every 1hr
-				System.Threading.Thread.Sleep(3600 * 1000);
+				TimeSpan timeDelta = FindNextRunHour();
+				int TimeToWait = (int)timeDelta.TotalSeconds;
+				Console.WriteLine("Waiting {0} seconds", TimeToWait);
+
+				// Try to get as close to the times[] as possible
+				System.Threading.Thread.Sleep(TimeToWait * 1000);
 				CheckForUpdates(rk);
 			}
 		}
@@ -144,6 +151,27 @@ namespace ThinBing
 			else
 				CheckForOtherProcess();
 
+		}
+
+		static TimeSpan FindNextRunHour()
+		{
+			int curHour = new DateTime().GetCurHour12();
+			int nearestHour = 1;
+
+			foreach (int time in timeSchedule)
+			{
+				if (curHour <= time)
+				{
+					nearestHour = time;
+					break;
+				}
+			}
+
+			DateTime baseDate = DateTime.Now;
+			var dateNow = new DateTime(baseDate.Year, baseDate.Month, baseDate.Day, curHour, baseDate.Minute, baseDate.Second);
+			var compDate = new DateTime(dateNow.Year, dateNow.Month, dateNow.Day, nearestHour, 0, 0);
+
+			return compDate - dateNow;
 		}
 
 		static bool ParseImage(string fileName, byte[] imageData, Bing data)

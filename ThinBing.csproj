@@ -39,7 +39,7 @@
     <StartupObject />
   </PropertyGroup>
   <PropertyGroup>
-    <ApplicationIcon>GreyMan.ico</ApplicationIcon>
+    <ApplicationIcon>Resources\GreyMan.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
@@ -54,8 +54,9 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Bing.cs" />
-    <Compile Include="GitHubReleases.cs" />
+    <Compile Include="Resources\Bing.cs" />
+    <Compile Include="Resources\ExtensionMethods.cs" />
+    <Compile Include="Resources\GitHubReleases.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
@@ -63,7 +64,6 @@
     <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="GreyMan.ico" />
     <Content Include="Resources\GreyMan.ico" />
   </ItemGroup>
   <ItemGroup />

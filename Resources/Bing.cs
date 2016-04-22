@@ -1,4 +1,4 @@
-﻿namespace ThinBing
+﻿namespace ThinBing.Resources
 {
     public class Bing
     {
