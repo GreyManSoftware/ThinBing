@@ -161,7 +161,7 @@ namespace ThinBing
 
 			foreach (int time in timeSchedule)
 			{
-				if (curHour <= time)
+				if (curHour < time)
 				{
 					nearestHour = time;
 					break;
@@ -172,6 +172,7 @@ namespace ThinBing
 			var compDate = new DateTime(dateNow.Year, dateNow.Month, dateNow.Day, nearestHour, 0, 0);
 
 			return compDate - dateNow;
+
 		}
 
 		static bool ParseImage(string fileName, byte[] imageData, Bing data)
