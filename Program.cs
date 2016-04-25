@@ -155,7 +155,8 @@ namespace ThinBing
 
 		static TimeSpan FindNextRunHour()
 		{
-			int curHour = new DateTime().GetCurHour12();
+			DateTime baseDate = DateTime.Now;
+			int curHour = baseDate.GetCurHour12();
 			int nearestHour = 1;
 
 			foreach (int time in timeSchedule)
@@ -167,7 +168,6 @@ namespace ThinBing
 				}
 			}
 
-			DateTime baseDate = DateTime.Now;
 			var dateNow = new DateTime(baseDate.Year, baseDate.Month, baseDate.Day, curHour, baseDate.Minute, baseDate.Second);
 			var compDate = new DateTime(dateNow.Year, dateNow.Month, dateNow.Day, nearestHour, 0, 0);
 
