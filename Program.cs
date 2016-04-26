@@ -17,7 +17,7 @@ namespace ThinBing
 {
 	class Program
 	{
-		private static int[] timeSchedule = new int[] { 2, 5, 8, 9, 11 };
+		private static int[] timeSchedule = new int[] { 8, 9, 11, 17 };
 
 		internal static class NativeMethods
 		{
@@ -112,7 +112,7 @@ namespace ThinBing
 				}
 
 				TimeSpan timeDelta = FindNextRunHour();
-				int TimeToWait = (int)timeDelta.TotalSeconds;
+				int TimeToWait = Math.Abs((int)timeDelta.TotalSeconds);
 				Console.WriteLine("Waiting {0} seconds", TimeToWait);
 
 				// Try to get as close to the times[] as possible
@@ -156,8 +156,10 @@ namespace ThinBing
 		static TimeSpan FindNextRunHour()
 		{
 			DateTime baseDate = DateTime.Now;
-			int curHour = baseDate.GetCurHour12();
-			int nearestHour = 1;
+			//int curHour = baseDate.GetCurHour12();
+			//int curHour = baseDate.Hour;
+			int curHour = 18;
+			int nearestHour = timeSchedule.First();
 
 			foreach (int time in timeSchedule)
 			{
