@@ -157,8 +157,7 @@ namespace ThinBing
 		{
 			DateTime baseDate = DateTime.Now;
 			//int curHour = baseDate.GetCurHour12();
-			//int curHour = baseDate.Hour;
-			int curHour = 18;
+			int curHour = baseDate.Hour;
 			int nearestHour = timeSchedule.First();
 
 			foreach (int time in timeSchedule)
