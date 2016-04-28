@@ -18,6 +18,9 @@ namespace ThinBing
 	class Program
 	{
 		private static int[] timeSchedule = new int[] { 8, 9, 11, 17 };
+		// This bad boy is global as I will edit in my event handler for sleep
+		private static int TimeToWait;
+		private static Log log = new Log(Path.Combine(Path.GetTempPath() + "ThinBing.log"));
 
 		internal static class NativeMethods
 		{
@@ -48,7 +51,7 @@ namespace ThinBing
 		{
 			// This allows users to get output if they run ThinBing from the cmdline
 			NativeMethods.AttachConsole(NativeMethods.ATTACH_PARENT_PROCESS);
-			Console.WriteLine();
+			log.WriteLine();
 
 			RegistryKey rk = Registry.CurrentUser.OpenSubKey("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", true);
 			
@@ -60,7 +63,7 @@ namespace ThinBing
 			if (args.Contains("-d"))
 			{
 				DelRegKey(rk);
-				Console.WriteLine("Deleting reg key and exiting...");
+				log.WriteLine(true, "Deleting reg key and exiting...");
 				Environment.Exit(0);
 			}
 
@@ -75,7 +78,7 @@ namespace ThinBing
 					if (fail > 4)
 					{
 						// This could just be an even longer sleep
-						Console.WriteLine("Failed too many times. Exiting...");
+						log.WriteLine(true, "Failed too many times. Exiting...");
 						Environment.Exit(-1);
 					}
 
@@ -112,12 +115,36 @@ namespace ThinBing
 				}
 
 				TimeSpan timeDelta = FindNextRunHour();
-				int TimeToWait = Math.Abs((int)timeDelta.TotalSeconds);
-				Console.WriteLine("Waiting {0} seconds", TimeToWait);
+				TimeToWait = Math.Abs((int)timeDelta.TotalSeconds);
+				log.WriteLine(true, "Waiting {0} seconds", TimeToWait);
 
 				// Try to get as close to the times[] as possible
-				System.Threading.Thread.Sleep(TimeToWait * 1000);
+				while (TimeToWait >= 0)
+				{
+					// Try and handle going to sleepybyes
+					SystemEvents.PowerModeChanged += OnPowerChange;
+					System.Threading.Thread.Sleep(15 * 1000);
+					TimeToWait -= 15;
+				}
+
+				SystemEvents.PowerModeChanged -= OnPowerChange;
 				CheckForUpdates(rk);
+			}
+		}
+
+		static void OnPowerChange(object s, PowerModeChangedEventArgs e)
+		{
+			switch (e.Mode)
+			{
+				case PowerModes.Resume:
+					log.WriteLine(true, "Powered up");
+					TimeToWait = 0;
+					break;
+				case PowerModes.Suspend:
+					log.WriteLine(true, "Going to sleep");
+					break;
+				default:
+					break;
 			}
 		}
 
@@ -232,7 +259,7 @@ namespace ThinBing
 			{
 				if (version.CompareTo(new Version(result.tag_name)) < 0)
 				{
-					Console.WriteLine("Downloading update: {0}", result.tag_name);
+					log.WriteLine(true, "Downloading update: {0}", result.tag_name);
 					if (DownloadData(result.assets[0].browser_download_url, output + "_" + result.tag_name + ".exe"))
 					{
 						Process.Start(output + "_" + result.tag_name + ".exe");
@@ -257,7 +284,7 @@ namespace ThinBing
 						try
 						{
 							oldBin = proc.MainModule.FileName;
-							Console.WriteLine("Killing old process: {0}", proc.Id);
+							log.WriteLine(true, "Killing old process: {0}", proc.Id);
 							proc.Kill();
 						}
 						catch
@@ -276,7 +303,7 @@ namespace ThinBing
 					{
 						try
 						{
-							Console.WriteLine("Cleaning up old bin {0}", oldBin);
+							log.WriteLine(true, "Cleaning up old bin {0}", oldBin);
 							File.Delete(oldBin);
 							break;
 						}
@@ -292,10 +319,10 @@ namespace ThinBing
 
 		static void PrintHelp()
 		{
-			Console.WriteLine();
-			Console.WriteLine("ThinBing.exe [-h, -d]");
-			Console.WriteLine("-h, -help : This help");
-			Console.WriteLine("-d, -del  : Deletes the start up reg key and exits");
+			log.WriteLine();
+			log.WriteLine(true, "ThinBing.exe [-h, -d]");
+			log.WriteLine(true, "-h, -help : This help");
+			log.WriteLine(true, "-d, -del  : Deletes the start up reg key and exits");
 			Environment.Exit(0);
 		}
 
@@ -326,7 +353,7 @@ namespace ThinBing
 		static bool DownloadData(string url, string fileName)
 		{
 			WebClient web = new WebClient();
-			Console.WriteLine("Saving file to: {0}", fileName);
+			log.WriteLine(true, "Saving file to: {0}", fileName);
 
 			try
 			{
@@ -342,7 +369,7 @@ namespace ThinBing
 
 		static byte[] DownloadData(string url)
 		{
-			Console.WriteLine("Downloading data...");
+			log.WriteLine(true, "Downloading data...");
 			WebClient web = new WebClient();
 			return web.DownloadData(url);
 		}
@@ -370,20 +397,20 @@ namespace ThinBing
 			
 			if (thinBing == null)
 			{
-				Console.WriteLine("Adding start up registry key");
+				log.WriteLine(true, "Adding start up registry key");
 				reg.SetValue("ThinBing", exePath);
 			}
 			else if (thinBing != null && thinBing.ToString() != exePath)
 			{
 				DelRegKey(reg);
-				Console.WriteLine("Changing start up registry key");
+				log.WriteLine(true, "Changing start up registry key");
 				reg.SetValue("ThinBing", exePath);
 			}
 		}
 
 		static void DelRegKey(RegistryKey reg)
 		{
-			Console.WriteLine("Deleting registry key");
+			log.WriteLine(true, "Deleting registry key");
 			if (CheckStartup(reg))
 				reg.DeleteValue("ThinBing");
 		}
