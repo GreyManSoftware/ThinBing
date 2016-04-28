@@ -186,20 +186,27 @@ namespace ThinBing
 			//int curHour = baseDate.GetCurHour12();
 			int curHour = baseDate.Hour;
 			int nearestHour = timeSchedule.First();
+            bool timerSet = false;
 
 			foreach (int time in timeSchedule)
 			{
 				if (curHour < time)
 				{
 					nearestHour = time;
+                    timerSet = true;
 					break;
 				}
 			}
 
-			var dateNow = new DateTime(baseDate.Year, baseDate.Month, baseDate.Day, curHour, baseDate.Minute, baseDate.Second);
-			var compDate = new DateTime(dateNow.Year, dateNow.Month, dateNow.Day, nearestHour, 0, 0);
+			DateTime dateNow = new DateTime(baseDate.Year, baseDate.Month, baseDate.Day, curHour, baseDate.Minute, baseDate.Second);
+            DateTime compDate;
 
-			return compDate - dateNow;
+            if (timerSet)
+                compDate = new DateTime(dateNow.Year, dateNow.Month, dateNow.Day, nearestHour, 0, 0);
+            else
+                compDate = new DateTime(dateNow.Year, dateNow.Month, dateNow.Day, nearestHour, 0, 0).AddDays(1); ;
+
+            return compDate - dateNow;
 
 		}
 
