@@ -21,6 +21,7 @@ namespace ThinBing
 		// This bad boy is global as I will edit in my event handler for sleep
 		private static int TimeToWait;
 		private static Log log = new Log(Path.Combine(Path.GetTempPath() + "ThinBing.log"));
+        private static int SleepTime = 30;
 
 		internal static class NativeMethods
 		{
@@ -118,17 +119,18 @@ namespace ThinBing
 				TimeToWait = Math.Abs((int)timeDelta.TotalSeconds);
 				log.WriteLine(true, "Waiting {0} seconds", TimeToWait);
 
-				// Try to get as close to the times[] as possible
-				while (TimeToWait >= 0)
-				{
-					// Try and handle going to sleepybyes
-					SystemEvents.PowerModeChanged += OnPowerChange;
-					System.Threading.Thread.Sleep(15 * 1000);
-					TimeToWait -= 15;
-				}
+                // Try and handle going to sleepybyes
+                SystemEvents.PowerModeChanged += OnPowerChange;
 
-				SystemEvents.PowerModeChanged -= OnPowerChange;
-				CheckForUpdates(rk);
+                // Try to get as close to the times[] as possible
+                while (TimeToWait > 0)
+				{
+					System.Threading.Thread.Sleep(SleepTime * 1000);
+					TimeToWait -= SleepTime;
+                }
+
+                SystemEvents.PowerModeChanged -= OnPowerChange;
+                CheckForUpdates(rk);
 			}
 		}
 
@@ -142,7 +144,8 @@ namespace ThinBing
 					break;
 				case PowerModes.Suspend:
 					log.WriteLine(true, "Going to sleep");
-					break;
+                    TimeToWait = 0;
+                    break;
 				default:
 					break;
 			}
@@ -186,20 +189,27 @@ namespace ThinBing
 			//int curHour = baseDate.GetCurHour12();
 			int curHour = baseDate.Hour;
 			int nearestHour = timeSchedule.First();
+            bool timerSet = false;
 
 			foreach (int time in timeSchedule)
 			{
 				if (curHour < time)
 				{
 					nearestHour = time;
+                    timerSet = true;
 					break;
 				}
 			}
 
-			var dateNow = new DateTime(baseDate.Year, baseDate.Month, baseDate.Day, curHour, baseDate.Minute, baseDate.Second);
-			var compDate = new DateTime(dateNow.Year, dateNow.Month, dateNow.Day, nearestHour, 0, 0);
+			DateTime dateNow = new DateTime(baseDate.Year, baseDate.Month, baseDate.Day, curHour, baseDate.Minute, baseDate.Second);
+            DateTime compDate;
 
-			return compDate - dateNow;
+            if (timerSet)
+                compDate = new DateTime(dateNow.Year, dateNow.Month, dateNow.Day, nearestHour, 0, 0);
+            else
+                compDate = new DateTime(dateNow.Year, dateNow.Month, dateNow.Day, nearestHour, 0, 0).AddDays(1); ;
+
+            return compDate - dateNow;
 
 		}
 
