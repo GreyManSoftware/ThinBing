@@ -148,7 +148,7 @@ namespace ThinBing
 			}
 		}
 
-		static void SetProperty(ref System.Drawing.Imaging.PropertyItem prop, int iId, string sTxt)
+		static void SetProperty(ref PropertyItem prop, int iId, string sTxt)
 		{
 			int iLen = sTxt.Length + 1;
 			byte[] bTxt = new Byte[iLen];
@@ -220,6 +220,9 @@ namespace ThinBing
 						MatchCollection match = CopyrightRegex.Matches(data.images[0].copyright);
 						string description = match[0].Value;
 						string author = match[1].Value;
+
+						if (!String.IsNullOrEmpty(description) && !String.IsNullOrEmpty(author))
+							log.WriteLine("Image details: {0} taken by {1}", description, author);
 
 						SetProperty(ref bingImageProp, PropertyTagImageDescription, description);
 						bingImage.SetPropertyItem(bingImageProp);
