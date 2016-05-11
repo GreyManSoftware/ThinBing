@@ -232,13 +232,26 @@ namespace ThinBing
 						string author = match[1].Value;
 
 						if (!String.IsNullOrEmpty(description) && !String.IsNullOrEmpty(author))
-							log.WriteLine("Image details: {0} taken by {1}", description, author);
+						{
+							// Clean up the strings
+							if (description.EndsWith(" "))
+								description = description.Substring(0, description.Length - 1);
 
-						SetProperty(ref bingImageProp, PropertyTagImageDescription, description);
-						bingImage.SetPropertyItem(bingImageProp);
+							// \u00A9 = ©
+							if (author.Contains('\u00A9'))
+							{
+								int chopLocation = author.IndexOf('\u00A9');
+								author = author.Substring(chopLocation, author.Length - chopLocation);
+							}
 
-						SetProperty(ref bingImageProp, PropertyTagCopyright, author);
-						bingImage.SetPropertyItem(bingImageProp);
+							log.WriteLine(true, "Image details: {0} - {1}", description, author);
+
+							SetProperty(ref bingImageProp, PropertyTagImageDescription, description);
+							bingImage.SetPropertyItem(bingImageProp);
+
+							SetProperty(ref bingImageProp, PropertyTagCopyright, author);
+							bingImage.SetPropertyItem(bingImageProp);
+						}
 
 						bingImage.Save(fileName);
 					}
