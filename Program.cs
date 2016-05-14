@@ -140,11 +140,11 @@ namespace ThinBing
 			{
 				case PowerModes.Resume:
 					log.WriteLine(true, "Powered up");
-					TimeToWait = 0;
+					TimeToWait = -1;
 					break;
 				case PowerModes.Suspend:
 					log.WriteLine(true, "Going to sleep");
-                    TimeToWait = 0;
+                    TimeToWait = -1;
                     break;
 				default:
 					break;
