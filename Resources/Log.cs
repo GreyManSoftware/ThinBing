@@ -17,7 +17,7 @@ namespace ThinBing.Resources
 
         public void CreateLogFile()
         {
-            string[] welcomeMessage = new string[] { "## ThinBing - Grey Man Software - Chris Davies 2016 ##", "## thinbing.greymansoftware.com ##" };
+            string[] welcomeMessage = new string[] { "## ThinBing - Grey Man Software - Chris Davies 2018 ##", "## thinbing.greymansoftware.com ##" };
             File.WriteAllLines(outputFilePath, welcomeMessage);
         }
 
