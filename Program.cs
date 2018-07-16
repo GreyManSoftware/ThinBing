@@ -252,7 +252,7 @@ namespace ThinBing
 						{
 							string oldFilename = Path.GetFileNameWithoutExtension(fileName);
 							oldFilename += "_" + (int)DateTime.Now.DayOfWeek;
-							File.Move(fileName, Path.Combine(directoryName, oldFilename + Path.GetExtension(fileName)));
+							File.Move(fileName, Path.Combine(directoryName, oldFilename + extension));
 						}
 					}
 
