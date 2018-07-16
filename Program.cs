@@ -123,7 +123,7 @@ namespace ThinBing
 				}
 
 				// If it fails, wait a min
-				catch
+				catch (Exception e)
 				{
 					System.Threading.Thread.Sleep(60 * 1000);
 					fail++;
@@ -252,13 +252,14 @@ namespace ThinBing
 						{
 							string oldFilename = Path.GetFileNameWithoutExtension(fileName);
 							oldFilename += "_" + (int)DateTime.Now.DayOfWeek;
+							File.Delete(Path.Combine(directoryName, oldFilename + extension));
 							File.Move(fileName, Path.Combine(directoryName, oldFilename + extension));
 						}
 					}
 
 					bingImage.Save(fileName);
 				}
-				catch
+				catch (Exception e)
 				{
 					fail++;
 					System.Threading.Thread.Sleep(60 * 1000);
