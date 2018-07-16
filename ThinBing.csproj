@@ -60,6 +60,9 @@
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Resources\Log.cs" />
+    <Compile Include="Utils\Startup.cs" />
+    <Compile Include="Utils\Updates.cs" />
+    <Compile Include="Utils\Web.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />

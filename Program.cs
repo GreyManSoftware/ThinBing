@@ -12,16 +12,17 @@ using System.Runtime.Serialization;
 using System.Text.RegularExpressions;
 using System.Web.Script.Serialization;
 using ThinBing.Resources;
+using ThinBing.Utils;
 
 namespace ThinBing
 {
 	class Program
 	{
 		private static int[] timeSchedule = new int[] { 8, 9, 11, 17 };
-		// This bad boy is global as I will edit in my event handler for sleep
 		private static int TimeToWait;
-		private static Log log = new Log(Path.Combine(Path.GetTempPath() + "ThinBing.log"));
+		public static Log log = new Log(Path.Combine(Path.GetTempPath() + "ThinBing.log"));
         private static int SleepTime = 30;
+		internal static RegistryKey RegKey = Registry.CurrentUser.OpenSubKey("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", true);
 
 		internal static class NativeMethods
 		{
@@ -41,8 +42,8 @@ namespace ThinBing
 			internal static readonly UInt32 SPIF_SENDWININICHANGE = 0x02;
 		}
 
-		static string BaseUrl = "http://www.bing.com/";
-		static string exePath = '"' + Path.GetFullPath(Assembly.GetExecutingAssembly().Location) + '"';
+		public static string BaseUrl = "http://www.bing.com/";
+		public static string exePath = '"' + Path.GetFullPath(Assembly.GetExecutingAssembly().Location) + '"';
 		static int PropertyTagImageDescription = 0x010E;
 		static int PropertyTagCopyright = 0x8298;
 		static Regex CopyrightRegex = new Regex(@"([^\(\)]+)", RegexOptions.Compiled);
@@ -53,25 +54,38 @@ namespace ThinBing
 			// This allows users to get output if they run ThinBing from the cmdline
 			NativeMethods.AttachConsole(NativeMethods.ATTACH_PARENT_PROCESS);
 			log.WriteLine();
-
-			RegistryKey rk = Registry.CurrentUser.OpenSubKey("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", true);
 			
 			if (args.Contains("-h") || args.Contains("-help"))
 				PrintHelp();
 
-			CheckForUpdates(rk);
+			try
+			{
+				Updates.CheckForUpdates();
+			}
+			catch (Exception e)
+			{
+				Console.WriteLine("Checking for updates failed! - {0}", e);
+				throw;
+			}
 
 			if (args.Contains("-d"))
 			{
-				DelRegKey(rk);
+				RegKey.DeleteStartup();
 				log.WriteLine(true, "Deleting reg key and exiting...");
 				Environment.Exit(0);
 			}
 
-			if (!CheckStartup(rk))
-				AddStartup(rk);
+			if (!RegKey.CheckStartup())
+				RegKey.AddStartup();
 
-			// Run this magic forever and ever
+			// Try and handle going to sleepybyes
+			SystemEvents.PowerModeChanged += OnPowerChange;
+
+			Run();
+		}
+
+		private static void Run()
+		{
 			while (true)
 			{
 				try
@@ -84,7 +98,7 @@ namespace ThinBing
 					}
 
 					// Grab Bing JSON
-					string input = GrabData("https://www.bing.com/HPImageArchive.aspx?format=js&idx=0&n=1&mkt=en-US");
+					string input = Web.GrabData("https://www.bing.com/HPImageArchive.aspx?format=js&idx=0&n=1&mkt=en-US");
 
 					if (String.IsNullOrEmpty(input))
 					{
@@ -93,11 +107,11 @@ namespace ThinBing
 					}
 
 					// Parse that magical wallpaper JSON
-					Bing data = ParseJson<Bing>(input);
+					Bing data = Web.ParseJson<Bing>(input);
 
 					// Grab that tasty image
 					string fileName = Path.Combine(Path.GetTempPath(), "ThinBing" + Path.GetExtension(data.images[0].url));
-					byte[] imageData = DownloadData(BaseUrl + data.images[0].url);
+					byte[] imageData = Web.DownloadData(BaseUrl + data.images[0].url);
 
 					// Parse that sexy image
 					if (!ParseImage(fileName, imageData, data))
@@ -119,18 +133,14 @@ namespace ThinBing
 				TimeToWait = Math.Abs((int)timeDelta.TotalSeconds);
 				log.WriteLine(true, "Waiting {0} seconds", TimeToWait);
 
-                // Try and handle going to sleepybyes
-                SystemEvents.PowerModeChanged += OnPowerChange;
-
-                // Try to get as close to the times[] as possible
-                while (TimeToWait > 0)
+				// Try to get as close to the times[] as possible
+				while (TimeToWait > 0)
 				{
 					System.Threading.Thread.Sleep(SleepTime * 1000);
 					TimeToWait -= SleepTime;
-                }
+				}
 
-                SystemEvents.PowerModeChanged -= OnPowerChange;
-                CheckForUpdates(rk);
+				Updates.CheckForUpdates();
 			}
 		}
 
@@ -162,25 +172,6 @@ namespace ThinBing
 			prop.Type = 2;
 			prop.Value = bTxt;
 			prop.Len = iLen;
-		}
-
-		static void CheckForUpdates(RegistryKey rk)
-		{
-			if (CheckForLatestVersion())
-			{
-				DelRegKey(rk);
-
-				// This sleep allows for the newly download file to end this processes life
-				// We don't simply just exit, because the other process gets the file pa
-				// from the running process. Tacky, I know :)
-				System.Threading.Thread.Sleep(3600 * 1000);
-
-				// We shouldn't ever get here
-				Environment.Exit(0);
-			}
-			else
-				CheckForOtherProcess();
-
 		}
 
 		static TimeSpan FindNextRunHour()
@@ -215,6 +206,9 @@ namespace ThinBing
 
 		static bool ParseImage(string fileName, byte[] imageData, Bing data)
 		{
+			string directoryName = Path.GetDirectoryName(fileName);
+			string extension = Path.GetExtension(fileName);
+
 			using (MemoryStream ms = new MemoryStream(imageData))
 			{
 				System.Drawing.Image bingImage = System.Drawing.Image.FromStream(ms);
@@ -253,10 +247,16 @@ namespace ThinBing
 							bingImage.SetPropertyItem(bingImageProp);
 						}
 
-						bingImage.Save(fileName);
+						//TODO: Move this to the end and check if the old file exists
+						if (File.Exists(fileName))
+						{
+							string oldFilename = Path.GetFileNameWithoutExtension(fileName);
+							oldFilename += "_" + (int)DateTime.Now.DayOfWeek;
+							File.Move(fileName, Path.Combine(directoryName, oldFilename + Path.GetExtension(fileName)));
+						}
 					}
-					else
-						bingImage.Save(fileName);
+
+					bingImage.Save(fileName);
 				}
 				catch
 				{
@@ -269,35 +269,8 @@ namespace ThinBing
 			return true;
 		}
 
-		static bool CheckForLatestVersion()
-		{
-			// Grab this bad boys version
-			Version version = Assembly.GetExecutingAssembly().GetName().Version;
-			string output = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "ThinBing");
-			
-			// Grab GitHub Releases
-			string json = GrabData("https://api.github.com/repos/GreyManSoftware/ThinBing/releases");
-
-			if (String.IsNullOrEmpty(json))
-				return false;
-
-			foreach (var result in ParseJson<List<GitHubReleases>>(json))
-			{
-				if (version.CompareTo(new Version(result.tag_name)) < 0)
-				{
-					log.WriteLine(true, "Downloading update: {0}", result.tag_name);
-					if (DownloadData(result.assets[0].browser_download_url, output + "_" + result.tag_name + ".exe"))
-					{
-						Process.Start(output + "_" + result.tag_name + ".exe");
-						return true;
-					}
-				}
-			}
-			return false;
-		}
-
 		// This entire function makes me sick
-		static void CheckForOtherProcess()
+		public static void CheckForOtherProcess()
 		{
 			foreach (Process proc in Process.GetProcesses().Where(p => p.ProcessName.StartsWith("ThinBing") && !p.ProcessName.Contains("vshost")))
 			{
@@ -352,93 +325,9 @@ namespace ThinBing
 			Environment.Exit(0);
 		}
 
-		static string GrabData(string path)
-		{
-			string response;
-
-			try
-			{
-				WebClient web = new WebClient();
-				web.Headers["User-Agent"] = @"Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/49.0.2623.87 Safari/537.36";
-				response = web.DownloadString(path);
-			}
-			catch
-			{
-				return null;
-			}
-
-			return response;
-		}
-
-		static T ParseJson<T>(string json)
-		{
-			JavaScriptSerializer js = new JavaScriptSerializer();
-			return js.Deserialize<T>(json);
-		}
-
-		static bool DownloadData(string url, string fileName)
-		{
-			WebClient web = new WebClient();
-			log.WriteLine(true, "Saving file to: {0}", fileName);
-
-			try
-			{
-				web.DownloadFile(url, fileName);
-			}
-			catch
-			{
-				return false;
-			}
-
-			return true;
-		}
-
-		static byte[] DownloadData(string url)
-		{
-			log.WriteLine(true, "Downloading data...");
-			WebClient web = new WebClient();
-			return web.DownloadData(url);
-		}
-
 		static void SetWallpaper(String path)
 		{
 			NativeMethods.SystemParametersInfo(NativeMethods.SPI_SETDESKWALLPAPER, 0, path, NativeMethods.SPIF_UPDATEINIFILE | NativeMethods.SPIF_SENDWININICHANGE);
-		}
-
-		static bool CheckStartup(RegistryKey reg)
-		{
-			object thinBing = Registry.GetValue(reg.Name, "ThinBing", null);
-
-			if (thinBing == null)
-				return false;
-			else if (thinBing.ToString() != exePath)
-				return false;
-			else
-				return true;
-		}
-
-		static void AddStartup(RegistryKey reg)
-		{
-			object thinBing = Registry.GetValue(reg.Name, "ThinBing", null);
-			
-			if (thinBing == null)
-			{
-				log.WriteLine(true, "Adding start up registry key");
-				reg.SetValue("ThinBing", exePath);
-			}
-			else if (thinBing != null && thinBing.ToString() != exePath)
-			{
-				DelRegKey(reg);
-				log.WriteLine(true, "Changing start up registry key");
-				reg.SetValue("ThinBing", exePath);
-			}
-		}
-
-		static void DelRegKey(RegistryKey reg)
-		{
-			log.WriteLine(true, "Deleting registry key");
-			if (CheckStartup(reg))
-				reg.DeleteValue("ThinBing");
 		}
 	}
 }
