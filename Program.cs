@@ -110,7 +110,7 @@ namespace ThinBing
 					Bing data = Web.ParseJson<Bing>(input);
 
 					// Grab that tasty image
-					string fileName = Path.Combine(Path.GetTempPath(), "ThinBing" + Path.GetExtension(data.images[0].url));
+					string fileName = Path.Combine(Path.GetTempPath(), "ThinBing.jpg");
 					byte[] imageData = Web.DownloadData(BaseUrl + data.images[0].url);
 
 					// Parse that sexy image
